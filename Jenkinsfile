@@ -18,6 +18,8 @@ pipeline {
                 sh '''
                 eval $(minikube docker-env)
                 docker build -t ${IMAGE_NAME} .
+                docker push ${IMAGE_NAME},
+                minikube image load ${IMAGE_NAME}
                 '''
             }
         }
