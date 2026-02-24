@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: my-node-app
-        image: venuenugula/my-app:1
+        image: venuenugula/my-app:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
