@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "venuenugula/my-app:${BUILD_NUMBER}"
+        IMAGE_NAME = "my-app:latest"
     }
 
     stages {
@@ -13,39 +13,29 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Image Inside Minikube') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                sh '''
+                eval $(minikube docker-env)
+                docker build -t ${IMAGE_NAME} .
+                '''
             }
         }
 
-        stage('Push Image') {
+        stage('Deploy to Minikube') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh """
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                    docker push ${DOCKER_IMAGE}
-                    """
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                sh """
-                kubectl set image deployment/my-node-app \
-                my-node-app=${DOCKER_IMAGE} --record
-                """
+                sh '''
+                minikube kubectl -- apply -f k8s/deployment.yaml
+                minikube kubectl -- apply -f k8s/service.yaml
+                '''
             }
         }
 
         stage('Verify') {
             steps {
-                sh "kubectl rollout status deployment/my-node-app"
+                sh '''
+                minikube kubectl -- get pods
+                '''
             }
         }
     }
