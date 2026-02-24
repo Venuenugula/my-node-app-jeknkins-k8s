@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         IMAGE_NAME = "venuenugula/my-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG  = "${BUILD_NUMBER}"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -16,40 +17,39 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t $IMAGE_NAME:$IMAGE_TAG ."
+                sh '''
+                docker build -t $IMAGE_NAME:$IMAGE_TAG .
+                '''
             }
         }
 
         stage('Push to DockerHub') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push $IMAGE_NAME:$IMAGE_TAG
-                    """
-                }
+                sh '''
+                docker push $IMAGE_NAME:$IMAGE_TAG
+                '''
             }
         }
 
-        stage('Deploy to Minikube') {
+        stage('Deploy') {
             steps {
-                sh """
-                    kubectl set image deployment/my-node-app \
-                    my-node-app=$IMAGE_NAME:$IMAGE_TAG || \
-                    kubectl apply -f k8s/deployment.yaml
+                sh '''
+                export KUBECONFIG=$KUBECONFIG
 
-                    kubectl rollout status deployment/my-node-app
-                """
+                kubectl set image deployment/my-node-app \
+                my-node-app=$IMAGE_NAME:$IMAGE_TAG || \
+                kubectl apply -f k8s/deployment.yaml
+
+                kubectl rollout status deployment/my-node-app
+                '''
             }
         }
 
         stage('Verify') {
             steps {
-                sh "kubectl get pods"
+                sh '''
+                kubectl get pods
+                '''
             }
         }
     }
